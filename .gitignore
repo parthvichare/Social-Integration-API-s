@@ -1,2 +1,23 @@
 /node_modules
 .env
+
+Facebook Pages API database Table
+
+//User Information
+UserId
+access Token
+user name
+
+// Page Information
+Page Id
+Page Name
+Page Access Token
+Page Category
+Page Category List
+Tasks
+
+
+pages_show_list,
+pages_manage_ads,
+pages_read_engagement,
+read_insights
