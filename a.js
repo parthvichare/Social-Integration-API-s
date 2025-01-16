@@ -69,3 +69,26 @@
 // app.listen(port, () => {
 //     console.log(`Server is running on http://localhost:${port}`);
 // });
+
+const dotenv = require('dotenv');
+const axios = require('axios');
+
+dotenv.config();
+
+const fetchUserPages=async()=>{
+    const response = await axios.get('https://graph.facebook.com/v16.0/me/accounts', {
+        params: {
+            access_token: process.env.ACCESS_TOKEN,
+            fields: 'id,name,access_token,category'
+        }
+    });
+    return response.data;
+}
+
+fetchUserPages()
+    .then(pages => {
+        console.log('User Pages:', pages);
+    })
+    .catch(err => {
+        console.error('Failed to fetch user pages:', err);
+    });
