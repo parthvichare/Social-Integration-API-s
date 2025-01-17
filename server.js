@@ -41,7 +41,7 @@ app.get('/auth/facebook', (req,res)=>{
     const params = new URLSearchParams({
         client_id : process.env.FACEBOOK_APP_ID,
         redirect_uri : process.env.FACEBOOK_REDIRECT_URI,
-        scope : 'business_management,ads_read,ads_accounts,ads_management,pages_show_list,pages_manage_ads,pages_read_engagement,read_insights,pages_read_user_content,pages_manage_posts,pages_messaging',
+        scope : 'business_management,ads_read,ads_management,pages_show_list,pages_manage_ads,pages_read_engagement,read_insights,pages_read_user_content,pages_manage_posts,pages_messaging',
     })
 
     const authUrl = `${baseURL}?${params.toString()}`;
@@ -125,27 +125,82 @@ app.get('/auth/facebook/callback', async (req, res) => {
 
         // Store access token in session
         req.session.accessToken = accessToken;
+        // req.session.category =  category;
+        // req.session
 
         // Fetch user pages
-        const pages = await fetchUserPages(accessToken);
-        res.json(pages);
+        const generate_pagesId  = await generatePagesId(accessToken)
+        const generate_businessId = await generateBusinessId(accessToken);
+        // const generate_AdaccountId = await generateAdsAccountId(accessToken)
+        const generateAdsAccountId = await adsAccountdetail(accessToken)
+        const page = generate_pagesId.data[0]
+        const business = generate_businessId.data[0]
+        // const adaccount = generateAdsAccountId
+
+        res.json({
+            pageId:page.id,
+            pageName: page.name,
+            accessToken:accessToken,
+            businessId:business.id,
+            businessCategory: business.name,
+            adAccountId:generateAdsAccountId.id,
+            adAccountNumber:generateAdsAccountId.account_id,
+            adaccountName: generateAdsAccountId.name,
+            all_info:generate_pagesId.data
+        });
     } catch (error) {
         console.error('Error during Facebook authentication:', error);
         res.status(500).send('Error during authentication');
     }
 });
 
-async function fetchUserPages(accessToken) {
-    const response = await axios.get('https://graph.facebook.com/v16.0/me/businesses', {
+async function generateBusinessId(accessToken) {
+    const response = await axios.get('https://graph.facebook.com/v16.0/me/businesses?', {
         params: {
             access_token: accessToken,
-            fields: 'id,name,access_token,category'
+            fields: 'id,name,access_token,category,promoted_object'
+        }
+
+    });
+    return response.data;
+}
+
+
+async function generatePagesId(accessToken) {
+    const response = await axiosInstance.get(`/me/accounts?`, {
+        params: {
+            access_token: accessToken,
         }
     });
     return response.data;
 }
 
 
+
+async function adsAccountdetail(accessToken){
+    const generate_AdaccountId = await generateAdsAccountId(accessToken)
+    if (!generate_AdaccountId || !generate_AdaccountId.data || generate_AdaccountId.data.length === 0) {
+        throw new Error('No ad accounts found.');
+    }
+    const adaccountId = generate_AdaccountId.data[0];
+    console.log("Account details",adaccountId)
+    const response = await axiosInstance.get(`/act_${adaccountId.account_id}`,{
+        params:{
+            access_token:accessToken,
+            fields:'name,account_id'
+        }
+    })
+    return response.data
+}
+
+async function generateAdsAccountId(accessToken){
+    const response = await axiosInstance.get("/me/adaccounts",{
+        params:{
+            access_token:accessToken,
+        }
+    })
+    return response.data
+}
 
 app.get("/app/:pageId/posts", async(req,res)=>{
     try{
@@ -166,13 +221,13 @@ app.get("/app/:pageId/posts", async(req,res)=>{
 })
 
 
-app.get("/app/:pageId/insights",async(req,res)=>{
+app.get("/app/:postId/insights",async(req,res)=>{
     try{
-        const pageId = req.params.pageId
+        const postId = req.params.postId
         const token = process.env.ACCESS_TOKEN
-        const Url = `/${pageId}/insights?metrics`
+        const Url = `/${postId}/insights`
         const params = {
-            scope: "post_reactions_like_total,post_reactions_love_total,post_reactions_wow_total",
+            metric: "post_reactions_like_total,post_reactions_love_total,post_reactions_wow_total,post_impressions_unique"
         }
         const headers = {
             "Authorization" : `Bearer ${token}`,
@@ -180,32 +235,18 @@ app.get("/app/:pageId/insights",async(req,res)=>{
         }
         const response =  await axiosInstance.get(Url,{headers,params})
         res.status(200).json(response.data)
-    }catch(error){
-        console.log(error.message)
+    } catch (error) {
+        console.error(error.response ? error.response.data : error.message);
+        res.status(500).json({ error: "Failed to fetch insights" });
     }
 })
 
 
-// //Page Posts Metrics
-// app.get("/app/:page-post-id/insights", async(req,res)=>{
-//     try{
 
-//     }
-// })
+//Create & Managing AdsCampaign
 
 
 
-
-
-// Function to fetch user Pages
-async function fetchUserPages(accessToken) {
-    const response = await axiosInstance.get(`/me/accounts`, {
-        params: {
-            access_token: accessToken
-        }
-    });
-    return response.data;
-}
 
 // Start the server
 app.listen(port, () => {
